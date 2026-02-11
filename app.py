@@ -1,7 +1,3 @@
-
-from dotenv import load_dotenv
-
-load_dotenv()
 import os
 import streamlit as st
 from dotenv import load_dotenv
@@ -10,11 +6,20 @@ from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from langchain.chains import LLMChain
 
-# .env を読み込む（ローカル用）
+# ローカル用：.env を読み込む（Cloudでは .env は無いが害はない）
 load_dotenv()
 
-# ローカル(.env) or Streamlit Cloud(secrets) の両対応
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+def get_api_key() -> str:
+    """ローカル(.env) → Cloud(Secrets) の順にAPIキーを取得"""
+    key = os.getenv("OPENAI_API_KEY")
+    if not key:
+        # secrets.toml が無い環境でも落ちないよう get を使う
+        key = st.secrets.get("OPENAI_API_KEY", "")
+    return key
+
+
+OPENAI_API_KEY = get_api_key()
 
 st.set_page_config(page_title="Streamlit LLM App", page_icon="🤖")
 
@@ -33,9 +38,7 @@ st.write(
 )
 
 if not OPENAI_API_KEY:
-    st.error(
-        "OPENAI_API_KEY が見つかりません。ローカルは .env、Cloudは Secrets に設定してください。"
-    )
+    st.error("OPENAI_API_KEY が未設定です。ローカルは .env、Cloudは Secrets に設定してください。")
     st.stop()
 
 # 専門家タイプ（A/B）
@@ -46,7 +49,10 @@ expert_type = st.radio(
 )
 
 # 入力フォーム（1つ）
-user_text = st.text_input("入力テキスト", placeholder="例：転職の自己PRを添削して / 2泊3日の旅行プラン作って")
+user_text = st.text_input(
+    "入力テキスト",
+    placeholder="例：転職の自己PRを添削して / 2泊3日の旅行プラン作って",
+)
 
 # 必須：関数（入力テキスト＋選択値 → LLM回答）
 def get_llm_answer(input_text: str, selected_expert: str) -> str:
@@ -73,11 +79,12 @@ def get_llm_answer(input_text: str, selected_expert: str) -> str:
     llm = ChatOpenAI(
         model="gpt-4o-mini",
         temperature=0.7,
-        api_key=OPENAI_API_KEY,
+        api_key=OPENAI_API_KEY,  # ← ローカル/Cloudどちらでもここに入る
     )
 
     chain = LLMChain(llm=llm, prompt=prompt)
     return chain.run(question=input_text)
+
 
 # ボタンで実行
 if st.button("送信", type="primary"):
