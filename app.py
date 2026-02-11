@@ -13,9 +13,13 @@ load_dotenv()
 def get_api_key() -> str:
     """ローカル(.env) → Cloud(Secrets) の順にAPIキーを取得"""
     key = os.getenv("OPENAI_API_KEY")
+
     if not key:
-        # secrets.toml が無い環境でも落ちないよう get を使う
-        key = st.secrets.get("OPENAI_API_KEY", "")
+        try:
+            key = st.secrets["OPENAI_API_KEY"]
+        except Exception:
+            key = None
+
     return key
 
 
@@ -54,6 +58,7 @@ user_text = st.text_input(
     placeholder="例：転職の自己PRを添削して / 2泊3日の旅行プラン作って",
 )
 
+
 # 必須：関数（入力テキスト＋選択値 → LLM回答）
 def get_llm_answer(input_text: str, selected_expert: str) -> str:
     if selected_expert.startswith("A"):
@@ -79,7 +84,7 @@ def get_llm_answer(input_text: str, selected_expert: str) -> str:
     llm = ChatOpenAI(
         model="gpt-4o-mini",
         temperature=0.7,
-        api_key=OPENAI_API_KEY,  # ← ローカル/Cloudどちらでもここに入る
+        api_key=OPENAI_API_KEY,
     )
 
     chain = LLMChain(llm=llm, prompt=prompt)
